@@ -51,7 +51,7 @@ def loginGetCode(user, password):
     try:
         code_pattern = re.compile("(?<=access=).*?(?=&)")
         code = code_pattern.findall(location)[0]
-    except:
+    except IndexError:
         return 0, 0
     return is_phone, code
 
