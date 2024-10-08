@@ -4,6 +4,7 @@ import random
 import time
 import datetime
 import sys
+import os
 
 
 def get_time_stamp():
@@ -153,16 +154,21 @@ def brushStep(app_token, user_id, step):
         return False, response['message']
 
 
-def pushMessage(token, title, message):
-    r"""
-    推送消息
-    :param token: token
-    :param title: 标题
-    :param message: 消息内容
-    :return:
-    """
-    url = f"http://www.pushplus.plus/send?token={token}&title={title}&content={message}&template=html"
-    res = requests.get(url).json()
+# server酱微信推送
+def server_send(msg, sckey=None):
+    if sckey is None:
+        sckey = os.getenv('SCKEY')
+
+    if sckey is None or sckey == '':
+        print("No SCKEY provided.")
+        return
+    server_url = f"https://sctapi.ftqq.com/{sckey}.send"
+
+    data = {
+        'text': msg,
+        'desp': msg
+    }
+    requests.post(server_url, data=data)
 
 
 def main(_user, _password, _step_min, _step_max):
@@ -185,16 +191,19 @@ def main(_user, _password, _step_min, _step_max):
     # 根据服务器时间设置，如果你是在github执行，时间为UTC时间，即北京时间-8
     time_bj = datetime.datetime.today() + datetime.timedelta(hours=8)
     now = time_bj.strftime("%Y-%m-%d %H:%M:%S")
-    result = f"[{now}]\n账号：{user[:3]}****{user[7:]}\n修改步数（{step}）[" + message + "]\n"
+    result = f"[{now}] 步数（{step}）[{message}]"
     print(result)
     return result
 
 
 if __name__ == '__main__':
-    user = sys.argv[1]
-    password = sys.argv[2]
-    pushplus_token = sys.argv[3]
-    ##刷步数
-    res = main(user, password, 5000, 8000)
-    # 推送消息
-    pushMessage(pushplus_token, "刷步接口调用", res)
+    # 从命令行参数或环境变量中获取参数
+    user = sys.argv[1] if len(sys.argv) > 1 else os.getenv('USER')
+    password = sys.argv[2] if len(sys.argv) > 2 else os.getenv('PWD')
+    sckey = sys.argv[3] if len(sys.argv) > 3 else os.getenv('SCKEY')
+
+    # 刷步数
+    res = main(user, password, 30000, 40000)
+
+    # 调用server_send函数
+    server_send(res, sckey)
