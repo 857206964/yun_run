@@ -12,10 +12,8 @@ def get_time_stamp():
 
     :return: 时间戳
     """
-    url = 'http://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp'
-    response = requests.get(url).json()
-    t = response['data']['t']
-    return t
+    timestamp = int(time.time() * 1000)  # 转换为毫秒
+    return timestamp
 
 
 def loginGetCode(user, password):
