@@ -92,6 +92,15 @@ def getLoginToken(code, is_phone):
         }
 
     r2 = requests.post(url, data=data).json()
+    
+    # 打印返回的 JSON 数据
+    print(json.dumps(r2, indent=4, ensure_ascii=False))
+
+    # 检查返回数据中是否包含 token_info
+    if "token_info" not in r2:
+        print(f"登录失败，返回信息: {r2}")
+        return None, None
+        
     login_token = r2["token_info"]["login_token"]
     print("login_token获取成功！")
     print(login_token)
