@@ -160,23 +160,28 @@ def brushStep(app_token, user_id, step):
     else:
         return False, response['message']
 
-
 # server酱微信推送
 def server_send(msg, sckey=None):
-    if sckey is None:
-        sckey = os.getenv('SCKEY')
-
-    if sckey is None or sckey == '':
-        print("No SCKEY provided.")
-        return
-    server_url = f"https://sctapi.ftqq.com/{sckey}.send"
-
-    data = {
-        'text': msg,
-        'desp': msg
-    }
-    requests.post(server_url, data=data)
-
+    try:
+        if sckey is None:
+            sckey = os.getenv('SCKEY')
+        if not sckey:
+            print("未提供SCKEY，跳过推送。")
+            return
+        
+        server_url = f"https://sctapi.ftqq.com/{sckey}.send"
+        data = {
+            'text': msg,
+            'desp': msg
+        }
+        # 添加超时设置和更健壮的异常处理
+        response = requests.post(server_url, data=data, timeout=10)
+        response.raise_for_status()  # 检查HTTP错误状态
+        print("Server酱推送成功")
+    except requests.exceptions.RequestException as e:
+        print(f"推送至Server酱失败，网络请求异常: {str(e)}")
+    except Exception as e:
+        print(f"推送至Server酱时发生未知错误: {str(e)}")
 
 def main(_user, _password, _step_min, _step_max):
     user = str(_user)
