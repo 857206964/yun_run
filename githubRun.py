@@ -225,8 +225,8 @@ def main(user, password, step_min=30000, step_max=40000):
 
 if __name__ == '__main__':
     # 参数处理
-    user = sys.argv[1] if len(sys.argv) > 1 else os.getenv('HM_USER')
-    password = sys.argv[2] if len(sys.argv) > 2 else os.getenv('HM_PASSWORD')
+    user = sys.argv[1] if len(sys.argv) > 1 else os.getenv('USER')
+    password = sys.argv[2] if len(sys.argv) > 2 else os.getenv('PWD')
     sckey = sys.argv[3] if len(sys.argv) > 3 else os.getenv('SCKEY')
     
     if not all([user, password]):
