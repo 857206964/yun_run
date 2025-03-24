@@ -31,7 +31,7 @@ jobs:
       - name: 设置环境变量
         run: |
           pip3 install requests
-          user='${{ secrets.USER }}'
-          passwd='${{ secrets.PWD }}' 
+          user='${{ secrets.HM_USER }}'
+          passwd='${{ secrets.HM_PASSWORD }}' 
           sckey='${{ secrets.SCKEY }}'
           python3 githubRun.py ${user} ${passwd} ${sckey}
