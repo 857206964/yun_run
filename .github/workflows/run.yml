@@ -19,10 +19,11 @@ jobs:
         run: echo ${{ env.ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION }}
       - name: Checkout codes
         uses: actions/checkout@v4
+        
       - name: Update system and install zsh
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip
+          sudo -E apt-get -qq update
+          sudo -E apt-get install zsh -y
 
       - name: 初始化Python
         uses: actions/setup-python@v5
