@@ -1,3 +1,9 @@
+# 在脚本最顶部（import 后立即执行）
+import os
+os.environ.pop('HTTP_PROXY', None)
+os.environ.pop('HTTPS_PROXY', None)
+os.environ.pop('http_proxy', None)
+os.environ.pop('https_proxy', None)
 import requests
 import re
 import random
@@ -59,9 +65,15 @@ def loginGetCode(user, password):
         "token": "access"
     }
     headers = {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "User-Agent": generate_random_ua()  # 使用动态UA
-    }
+    "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+    "User-Agent": generate_random_ua(),
+    "Accept": "*/*",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Origin": "https://s3-us-west-2.amazonaws.com",
+    "Referer": "https://s3-us-west-2.amazonaws.com/hm-registration/successsignin.html",
+}
 
     try:
         # 添加随机延迟(1-3秒)避免请求高峰
@@ -218,37 +230,26 @@ def main(user, password, step_min=30000, step_max=40000):
         step = str(random.randint(int(step_min), int(step_max)))
         print(f"生成随机步数: {step}")
 
-        # 带限流保护的重试机制
-        retry_count = 0
-        max_retries = 3
-        code = None
-
-        while retry_count < max_retries:
+       # 只尝试 2 次，避免激怒风控
+        for attempt in range(2):
             is_phone, code = loginGetCode(user, password)
             if code:
                 break
+            if attempt == 0:
+                wait = 120 + random.randint(0, 60)
+                print(f"首次失败，等待 {wait} 秒后重试...")
+                time.sleep(wait)
+        else:
+            return format_result("获取登录Code失败（多次尝试）", False)
 
-            retry_count += 1
-            wait_time = 30 * retry_count
-            print(f"登录失败，等待{wait_time}秒后重试 ({retry_count}/{max_retries})")
-            time.sleep(wait_time)
-
-        # 第一阶段：获取登录凭证
-        is_phone, code = loginGetCode(user, password)
-        if not code:
-            return format_result("获取登录Code失败", False)
-
-        # 第二阶段：获取Token
         login_token, userid = getLoginToken(code, is_phone)
         if not all([login_token, userid]):
             return format_result("获取登录凭证失败", False)
 
-        # 第三阶段：获取AppToken
         app_token = getAppToken(login_token)
         if not app_token:
             return format_result("获取应用令牌失败", False)
 
-        # 第四阶段：提交数据
         success, message = brushStep(app_token, userid, step)
         return format_result(f"步数 {step} | {message}", success)
 
