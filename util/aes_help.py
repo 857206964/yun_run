@@ -1,5 +1,6 @@
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
+import os
 
 # 华米传输加密使用的密钥 固定iv
 # 参考自 https://github.com/hanximeng/Zepp_API/blob/main/index.php
@@ -7,6 +8,13 @@ HM_AES_KEY = b'xeNtBVqzDc6tuNTh'  # 16 bytes
 HM_AES_IV = b'MAAAYAAAAAAAAABg'  # 16 bytes
 
 AES_BLOCK_SIZE = AES.block_size  # 16
+
+def get_aes_key():
+    """获取AES密钥：优先使用环境变量，否则使用默认密钥"""
+    aes_key = os.environ.get('AES_KEY')
+    if aes_key and len(aes_key) == 16:
+        return aes_key.encode('utf-8')
+    return DEFAULT_AES_KEY
 
 
 def _pkcs7_pad(data: bytes) -> bytes:
@@ -30,7 +38,6 @@ def _validate_key(key: bytes):
         raise TypeError("key must be bytes")
     if len(key) != 16:
         raise ValueError("key must be 16 bytes for AES-128")
-
 
 def encrypt_data(plain: bytes, key: bytes, iv: bytes | None = None) -> bytes:
     """
