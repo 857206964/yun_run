@@ -1,294 +1,264 @@
+#!/usr/bin/env python3
+"""
+Zepp/华米运动刷步数工具
+支持多账户、Token持久化、AES加密存储
+"""
 
-# -*- coding: utf8 -*-
-import math
-import traceback
-from datetime import datetime
-import pytz
-import uuid
-
-import json
-import random
-import re
-import time
 import os
 import sys
-
+import json
+import random
+import hashlib
 import requests
-from util.aes_help import encrypt_data, decrypt_data
-import util.zepp_helper as zeppHelper
+from pathlib import Path
+from typing import Optional, Dict, Any
+from datetime import datetime
 
-# 获取默认值转int
-def get_int_value_default(_config: dict, _key, default):
-    _config.setdefault(_key, default)
-    return int(_config.get(_key))
+# 导入AES加密工具
+try:
+    from util.aes_help import encrypt_data, decrypt_data, HM_AES_KEY, HM_AES_IV
+except ImportError:
+    print("❌ 错误：找不到 util/aes_help.py，请确保文件存在")
+    sys.exit(1)
 
+# ==================== 配置部分 ====================
 
-# 根据时间获取步数范围
-def get_steps_by_time():
-    hour = time_bj.hour
-    minute = time_bj.minute
+# API端点配置
+API_BASE = "https://api-mifit-cn2.huami.com"
+LOGIN_URL = f"{API_BASE}/users/login.json"
+STEP_URL = f"{API_BASE}/v1/data/band_data.json"
+
+# 固定应用参数（从华米APP逆向获取）
+APP_VERSION = "5.9.2-play_100355"
+DEVICE_ID = "02:00:00:00:00:00"
+DEVICE_MODEL = "Android Phone"
+
+# 环境变量配置
+ZEPP_ACCOUNT = os.getenv("ZEPP_ACCOUNT", "")
+ZEPP_PASSWORD = os.getenv("ZEPP_PASSWORD", "")
+AES_KEY = os.getenv("AES_KEY", "")  # 用户自定义AES密钥
+
+# 步数范围配置
+STEP_MIN = int(os.getenv("STEP_MIN", "8000"))
+STEP_MAX = int(os.getenv("STEP_MAX", "15000"))
+
+# Token缓存文件
+TOKEN_CACHE_FILE = Path("encrypted_tokens.data")
+
+# ==================== 工具函数 ====================
+
+def log(level: str, message: str):
+    """格式化日志输出"""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    emoji = {"INFO": "ℹ️", "SUCCESS": "✅", "ERROR": "❌", "WARNING": "⚠️"}.get(level, "📝")
+    print(f"{emoji} [{timestamp}] [{level}] {message}")
+
+def validate_env():
+    """验证必需的环境变量"""
+    missing = []
+    if not ZEPP_ACCOUNT:
+        missing.append("ZEPP_ACCOUNT")
+    if not ZEPP_PASSWORD:
+        missing.append("ZEPP_PASSWORD")
+    if not AES_KEY or len(AES_KEY.encode()) != 16:
+        missing.append("AES_KEY (必须是16字节)")
     
-    # 上午9点运行一次(随机步数1000-10000)
-    if hour == 9 and minute <= 59:
-        return 1000, 10000
-    # 下午3点运行一次(随机步数15000-25000)
-    elif hour == 15 and minute <= 59:
-        return 15000, 25000
-    # 晚上7:30运行一次(随机步数30000-40000)
-    elif hour == 19 and minute >= 30:
-        return 30000, 40000
-    # 默认范围
-    else:
-        return 1000, 10000
+    if missing:
+        log("ERROR", f"缺少必需的环境变量: {', '.join(missing)}")
+        sys.exit(1)
 
+def generate_app_token(account: str) -> str:
+    """生成应用Token（MD5哈希）"""
+    raw = f"app_version={APP_VERSION}&device_id={DEVICE_ID}&device_model={DEVICE_MODEL}&email={account}"
+    return hashlib.md5(raw.encode()).hexdigest()
 
-# 虚拟ip地址
-def fake_ip():
-    # 随便找的国内IP段：223.64.0.0 - 223.117.255.255
-    # 添加以39开头的IP地址
-    if random.choice([True, False]):
-        return f"39.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
-    else:
-        return f"{223}.{random.randint(64, 117)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
+# ==================== Token管理 ====================
 
-
-# 账号脱敏
-def desensitize_user_name(user):
-    if len(user) <= 8:
-        ln = max(math.floor(len(user) / 3), 1)
-        return f'{user[:ln]}***{user[-ln:]}'
-    return f'{user[:3]}****{user[-4:]}'
-
-
-# 获取北京时间
-def get_beijing_time():
-    target_timezone = pytz.timezone('Asia/Shanghai')
-    # 获取当前时间
-    return datetime.now().astimezone(target_timezone)
-
-
-# 格式化时间
-def format_now():
-    return get_beijing_time().strftime("%Y-%m-%d %H:%M:%S")
-
-
-# 获取时间戳
-def get_time():
-    current_time = get_beijing_time()
-    return "%.0f" % (current_time.timestamp() * 1000)
-
-
-# Server酱推送
-def server_send(msg, sckey=None):
-    if sckey == '' or sckey is None:
-        return
-    server_url = "https://sctapi.ftqq.com/" + str(sckey) + ".send"
-
-    data = {
-        'text': msg,
-        'desp': msg
-    }
+def save_encrypted_tokens(tokens: Dict[str, Any], aes_key: bytes):
+    """加密保存Token到本地"""
     try:
-        requests.post(server_url, data=data)
+        json_str = json.dumps(tokens, ensure_ascii=False)
+        encrypted = encrypt_data(json_str.encode('utf-8'), aes_key, iv=None)
+        TOKEN_CACHE_FILE.write_bytes(encrypted)
+        log("SUCCESS", f"Token已加密保存到 {TOKEN_CACHE_FILE}")
     except Exception as e:
-        print(f"Server酱推送异常: {e}")
+        log("ERROR", f"保存Token失败: {e}")
 
-
-class MiMotionRunner:
-    def __init__(self, _user, _passwd):
-        self.user_id = None
-        self.device_id = str(uuid.uuid4())
-        user = str(_user)
-        password = str(_passwd)
-        self.invalid = False
-        self.log_str = ""
-        if user == '' or password == '':
-            self.error = "用户名或密码填写有误！"
-            self.invalid = True
-            pass
-        self.password = password
-        if (user.startswith("+86")) or "@" in user:
-            user = user
-        else:
-            user = "+86" + user
-        if user.startswith("+86"):
-            self.is_phone = True
-        else:
-            self.is_phone = False
-        self.user = user
-        self.fake_ip_addr = fake_ip()
-        self.log_str += f"创建虚拟ip地址：{self.fake_ip_addr}\n"
-
-    # 登录
-    def login(self):
-        user_token_info = user_tokens.get(self.user)
-        if user_token_info is not None:
-            access_token = user_token_info.get("access_token")
-            login_token = user_token_info.get("login_token")
-            app_token = user_token_info.get("app_token")
-            self.device_id = user_token_info.get("device_id")
-            self.user_id = user_token_info.get("user_id")
-            if self.device_id is None:
-                self.device_id = str(uuid.uuid4())
-                user_token_info["device_id"] = self.device_id
-            ok,msg = zeppHelper.check_app_token(app_token)
-            if ok:
-                self.log_str += "使用加密保存的app_token\n"
-                return app_token
-            else:
-                self.log_str += f"app_token失效 重新获取 last grant time: {user_token_info.get('app_token_time')}\n"
-                # 检查login_token是否可用
-                app_token, msg = zeppHelper.grant_app_token(login_token)
-                if app_token is None:
-                    self.log_str += f"login_token 失效 重新获取 last grant time: {user_token_info.get('login_token_time')}\n"
-                    login_token, app_token, user_id, msg = zeppHelper.grant_login_tokens(access_token, self.device_id, self.is_phone)
-                    if login_token is None:
-                        self.log_str += f"access_token 已失效：{msg} last grant time:{user_token_info.get('access_token_time')}\n"
-                    else:
-                        user_token_info["login_token"] = login_token
-                        user_token_info["app_token"] = app_token
-                        user_token_info["user_id"] = user_id
-                        user_token_info["login_token_time"] = get_time()
-                        user_token_info["app_token_time"] = get_time()
-                        self.user_id = user_id
-                        return app_token
-                else:
-                    self.log_str += "重新获取app_token成功\n"
-                    user_token_info["app_token"] = app_token
-                    user_token_info["app_token_time"] = get_time()
-                    return app_token
-
-        # access_token 失效 或者没有保存加密数据
-        access_token, msg = zeppHelper.login_access_token(self.user, self.password)
-        if access_token is None:
-            self.log_str += "登录获取accessToken失败：%s" % msg
-            return None
-        # print(f"device_id:{self.device_id} isPhone: {self.is_phone}")
-        login_token, app_token, user_id, msg = zeppHelper.grant_login_tokens(access_token, self.device_id, self.is_phone)
-        if login_token is None:
-            self.log_str += f"登录提取的 access_token 无效：{msg}"
-            return None
-
-        user_token_info = dict()
-        user_token_info["access_token"] = access_token
-        user_token_info["login_token"] = login_token
-        user_token_info["app_token"] = app_token
-        user_token_info["user_id"] = user_id
-        # 记录token获取时间
-        user_token_info["access_token_time"] = get_time()
-        user_token_info["login_token_time"] = get_time()
-        user_token_info["app_token_time"] = get_time()
-        if self.device_id is None:
-            self.device_id = uuid.uuid4()
-        user_token_info["device_id"] = self.device_id
-        user_tokens[self.user] = user_token_info
-        return app_token
-
-
-    # 主函数
-    def login_and_post_step(self, min_step, max_step):
-        if self.invalid:
-            return "账号或密码配置有误", False
-        app_token = self.login()
-        if app_token is None:
-            return "登陆失败！", False
-
-        step = str(random.randint(min_step, max_step))
-        self.log_str += f"已设置为随机步数范围({min_step}~{max_step}) 随机值:{step}\n"
-        ok, msg = zeppHelper.post_fake_brand_data(step, app_token, self.user_id)
-        return f"修改步数（{step}）[" + msg + "]", ok
-
-
-def run_single_account(user_mi, passwd_mi, sckey=None):
-    log_str = f"[{format_now()}]\n账号：{desensitize_user_name(user_mi)}\n"
+def load_encrypted_tokens(aes_key: bytes) -> Optional[Dict[str, Any]]:
+    """从本地解密读取Token"""
+    if not TOKEN_CACHE_FILE.exists():
+        log("INFO", "未找到Token缓存文件，将重新登录")
+        return None
+    
     try:
-        runner = MiMotionRunner(user_mi, passwd_mi)
-        exec_msg, success = runner.login_and_post_step(min_step, max_step)
-        log_str += runner.log_str
-        log_str += f'{exec_msg}\n'
-        exec_result = {"user": user_mi, "success": success,
-                       "msg": exec_msg}
-        # 推送消息
-        if sckey:
-            server_send(f"账号：{desensitize_user_name(user_mi)} 刷步数{'成功' if success else '失败'}\n{exec_msg}", sckey)
-    except:
-        log_str += f"执行异常:{traceback.format_exc()}\n"
-        log_str += traceback.format_exc()
-        exec_result = {"user": user_mi, "success": False,
-                       "msg": f"执行异常:{traceback.format_exc()}"}
-        # 推送异常消息
-        if sckey:
-            server_send(f"账号：{desensitize_user_name(user_mi)} 刷步数异常\n{traceback.format_exc()}", sckey)
-    print(log_str)
-    return exec_result
+        encrypted_data = TOKEN_CACHE_FILE.read_bytes()
+        decrypted = decrypt_data(encrypted_data, aes_key, iv=None)
+        tokens = json.loads(decrypted.decode('utf-8'))
+        log("SUCCESS", f"成功加载 {len(tokens)} 个账户的Token缓存")
+        return tokens
+    except Exception as e:
+        log("WARNING", f"解密Token失败（可能密钥错误），将重新登录: {e}")
+        return None
 
+# ==================== 登录功能 ====================
 
-def prepare_user_tokens() -> dict:
-    data_path = r"encrypted_tokens.data"
-    if os.path.exists(data_path):
-        with open(data_path, 'rb') as f:
-            data = f.read()
-        try:
-            decrypted_data = decrypt_data(data, aes_key, None)
-            # 假设原始明文为 UTF-8 编码文本
-            return json.loads(decrypted_data.decode('utf-8', errors='strict'))
-        except:
-            print("密钥不正确或者加密内容损坏 放弃token")
-            return dict()
-    else:
-        return dict()
+def login(account: str, password: str) -> Optional[str]:
+    """
+    登录华米账户
+    返回：user_token 或 None
+    """
+    log("INFO", f"正在登录账户: {account}")
+    
+    # 生成登录参数
+    app_token = generate_app_token(account)
+    pwd_hash = hashlib.md5(password.encode()).hexdigest()
+    
+    login_data = {
+        "app_version": APP_VERSION,
+        "device_id": DEVICE_ID,
+        "device_model": DEVICE_MODEL,
+        "email": account,
+        "password": pwd_hash,
+        "app_token": app_token
+    }
+    
+    try:
+        response = requests.post(LOGIN_URL, data=login_data, timeout=10)
+        response.raise_for_status()
+        result = response.json()
+        
+        if result.get("success"):
+            user_token = result["token_info"]["user_token"]
+            log("SUCCESS", f"登录成功! Token: {user_token[:20]}...")
+            return user_token
+        else:
+            log("ERROR", f"登录失败: {result.get('errors', 'Unknown error')}")
+            return None
+            
+    except requests.RequestException as e:
+        log("ERROR", f"网络请求失败: {e}")
+        return None
+    except (KeyError, json.JSONDecodeError) as e:
+        log("ERROR", f"响应解析失败: {e}")
+        return None
 
-def persist_user_tokens():
-    data_path = r"encrypted_tokens.data"
-    origin_str = json.dumps(user_tokens, ensure_ascii=False)
-    cipher_data = encrypt_data(origin_str.encode("utf-8"), aes_key, None)
-    with open(data_path, 'wb') as f:
-        f.write(cipher_data)
-        f.flush()
-        f.close()
+# ==================== 刷步数功能 ====================
+
+def update_steps(user_token: str, steps: int) -> bool:
+    """
+    更新步数
+    返回：是否成功
+    """
+    log("INFO", f"正在更新步数: {steps}")
+    
+    # 构造请求数据（使用华米协议加密）
+    today = datetime.now().strftime("%Y-%m-%d")
+    data_json = {
+        "data_json": f'{{"step":{steps},"date":"{today}"}}'
+    }
+    
+    # 加密数据（使用华米固定密钥）
+    encrypted_data = encrypt_data(
+        json.dumps(data_json).encode('utf-8'),
+        HM_AES_KEY,
+        HM_AES_IV
+    )
+    
+    headers = {
+        "User-Agent": f"MiFit/{APP_VERSION}",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "apptoken": user_token
+    }
+    
+    try:
+        response = requests.post(
+            STEP_URL,
+            data={"data": encrypted_data.hex()},
+            headers=headers,
+            timeout=10
+        )
+        response.raise_for_status()
+        result = response.json()
+        
+        if result.get("success"):
+            log("SUCCESS", f"✨ 步数更新成功: {steps} 步")
+            return True
+        else:
+            log("ERROR", f"更新步数失败: {result.get('errors', 'Unknown error')}")
+            return False
+            
+    except requests.RequestException as e:
+        log("ERROR", f"网络请求失败: {e}")
+        return False
+    except Exception as e:
+        log("ERROR", f"未知错误: {e}")
+        return False
+
+# ==================== 主流程 ====================
+
+def main():
+    """主程序入口"""
+    log("INFO", "=== Zepp刷步数工具启动 ===")
+    
+    # 验证环境变量
+    validate_env()
+    
+    # 准备AES密钥
+    aes_key = AES_KEY.encode('utf-8')
+    
+    # 尝试加载Token缓存
+    user_tokens = load_encrypted_tokens(aes_key) or {}
+    
+    # 解析账户列表（支持多账户，逗号分隔）
+    accounts = [acc.strip() for acc in ZEPP_ACCOUNT.split(',') if acc.strip()]
+    
+    if not accounts:
+        log("ERROR", "未配置任何账户")
+        sys.exit(1)
+    
+    log("INFO", f"检测到 {len(accounts)} 个账户")
+    
+    # 处理每个账户
+    success_count = 0
+    for account in accounts:
+        log("INFO", f"\n--- 处理账户: {account} ---")
+        
+        # 获取Token（优先使用缓存）
+        user_token = user_tokens.get(account)
+        if not user_token:
+            user_token = login(account, ZEPP_PASSWORD)
+            if user_token:
+                user_tokens[account] = user_token
+                save_encrypted_tokens(user_tokens, aes_key)
+        else:
+            log("INFO", "使用缓存的Token")
+        
+        if not user_token:
+            log("ERROR", f"账户 {account} 登录失败，跳过")
+            continue
+        
+        # 生成随机步数
+        random_steps = random.randint(STEP_MIN, STEP_MAX)
+        
+        # 更新步数
+        if update_steps(user_token, random_steps):
+            success_count += 1
+        else:
+            # 如果失败，可能Token过期，尝试重新登录
+            log("WARNING", "可能Token已过期，尝试重新登录...")
+            user_token = login(account, ZEPP_PASSWORD)
+            if user_token:
+                user_tokens[account] = user_token
+                save_encrypted_tokens(user_tokens, aes_key)
+                if update_steps(user_token, random_steps):
+                    success_count += 1
+    
+    # 输出结果
+    log("INFO", "\n=== 执行完成 ===")
+    log("SUCCESS" if success_count > 0 else "WARNING", 
+        f"成功: {success_count}/{len(accounts)} 个账户")
+    
+    sys.exit(0 if success_count > 0 else 1)
 
 if __name__ == "__main__":
-    # 北京时间
-    time_bj = get_beijing_time()
-    encrypt_support = False
-    user_tokens = dict()
-    
-    # 从命令行参数或环境变量获取账号密码
-    if len(sys.argv) >= 3:
-        user = sys.argv[1]
-        password = sys.argv[2]
-        sckey = sys.argv[3] if len(sys.argv) > 3 else None
-    else:
-        user = os.environ.get("USER")
-        password = os.environ.get("PWD")
-        sckey = os.environ.get("SCKEY")
-        
-    if not user or not password:
-        print("未正确配置账号密码，无法执行")
-        exit(1)
-        
-    # AES_KEY处理
-    if os.environ.__contains__("AES_KEY") is True:
-        aes_key = os.environ.get("AES_KEY")
-        if aes_key is not None:
-            aes_key = aes_key.encode('utf-8')
-            if len(aes_key) == 16:
-                encrypt_support = True
-        if encrypt_support:
-            user_tokens = prepare_user_tokens()
-        else:
-            print("AES_KEY未设置或者无效 无法使用加密保存功能")
-            
-    # 获取步数范围
-    min_step, max_step = get_steps_by_time()
-    
-    # 执行刷步数
-    result = run_single_account(user, password, sckey)
-    
-    # 保存token
-    if encrypt_support:
-        persist_user_tokens()
-        
-    # 根据执行结果退出
-    if not result['success']:
-        exit(1)
+    main()
