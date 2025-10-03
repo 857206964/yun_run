@@ -1,14 +1,14 @@
-zepp-step-counter/
-├── .github/
-│   └── workflows/
-│       └── run.yml           # GitHub Actions 配置
-├── util/
-│   ├── __init__.py          # 空文件
-│   ├── aes_help.py          # AES加密工具
-│   └── zepp_helper.py       # Zepp API封装
-├── main.py                   # 主程序
-├── requirements.txt          # 依赖包
-└── README.md                # 说明文档
+ - zepp-step-counter/
+ - ├── .github/
+ - │   └── workflows/
+ - │       └── run.yml           # GitHub Actions 配置
+ - ├── util/
+ - │   ├── __init__.py          # 空文件
+ - │   ├── aes_help.py          # AES加密工具
+ - │   └── zepp_helper.py       # Zepp API封装
+ - ├── main.py                   # 主程序
+ - ├── requirements.txt          # 依赖包
+ - └── README.md                # 说明文档
 
 
 # 🏃 Zepp/华米运动自动刷步数
