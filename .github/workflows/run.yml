@@ -15,8 +15,8 @@ on:
     - cron: '30 1 * * *'
     # 下午15:30（UTC 7:30）
     - cron: '30 7 * * *'
-    # 晚上19:25（UTC 11:25）
-    - cron: '25 11 * * *'
+    # 晚上19:29（UTC 11:29）
+    - cron: '29 11 * * *'
 
 jobs:
   run-script:
@@ -44,6 +44,7 @@ jobs:
         SCKEY: ${{ secrets.SCKEY }}                  # Server酱推送密钥
         AES_KEY: ${{ secrets.AES_KEY }}              # AES加密密钥（可选）
         GITHUB_TOKEN: ${{ secrets.PAT }}             # GitHub PAT（用于持久化）
+        CONFIG: ${{ secrets.CONFIG }}                # 设置默认值
       run: |
         python main.py
         
