@@ -1,4 +1,4 @@
-name: Zepp Auto Step Counter
+name: 刷步数
 
 on:
   # 支持手动触发
