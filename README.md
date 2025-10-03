@@ -1,3 +1,16 @@
+zepp-step-counter/
+├── .github/
+│   └── workflows/
+│       └── run.yml           # GitHub Actions 配置
+├── util/
+│   ├── __init__.py          # 空文件
+│   ├── aes_help.py          # AES加密工具
+│   └── zepp_helper.py       # Zepp API封装
+├── main.py                   # 主程序
+├── requirements.txt          # 依赖包
+└── README.md                # 说明文档
+
+
 # 🏃 Zepp/华米运动自动刷步数
 
 > 基于GitHub Actions的全自动刷步数工具，支持多账户、Token持久化、随机时间执行
