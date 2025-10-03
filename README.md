@@ -50,7 +50,6 @@
 3. 勾选权限(默认)：
    - ✅ `repo` (完整仓库访问)
    - ✅ `workflow` (修改workflow)
-   
 4.权限自定义
   -   点击 `Repository permissions` 展开菜单，并勾选以下四个权限即可，其他的可以不勾选
   -  `Actions Access`: `Read and write` 用于获取Actions的权限
