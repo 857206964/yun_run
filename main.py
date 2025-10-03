@@ -18,6 +18,13 @@ from util.aes_help import encrypt_data, decrypt_data, get_aes_key
 import util.zepp_helper as zeppHelper
 
 
+# 在程序开始处添加
+print(f"ZEPP_USER存在: {bool(os.environ.get('ZEPP_USER'))}")
+print(f"ZEPP_PWD存在: {bool(os.environ.get('ZEPP_PWD'))}")
+print(f"CONFIG存在: {bool(os.environ.get('CONFIG'))}")
+print(f"CONFIG长度: {len(os.environ.get('CONFIG', ''))}")
+
+
 # ==================== 工具函数 ====================
 
 def get_int_value_default(config: dict, key: str, default: int) -> int:
