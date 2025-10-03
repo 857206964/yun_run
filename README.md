@@ -50,13 +50,15 @@
 3. 勾选权限(默认)：
    - ✅ `repo` (完整仓库访问)
    - ✅ `workflow` (修改workflow)
-4.权限自定义
+   
+4. 权限自定义
   -   点击 `Repository permissions` 展开菜单，并勾选以下四个权限即可，其他的可以不勾选
   -  `Actions Access`: `Read and write` 用于获取Actions的权限
   -  `Contents Access`: `Read and write` 用于更新定时任务和日志文件的权限
   -  `Metadata Access`: `Read-only` 这个自带的必选
   -  `Workflows Access`: `Read and write` 获取用于更新 `.github/workflow` 下文件的权限
 5. 生成后复制Token，添加到Secrets中
+  
 
 ### 5️⃣ 启用Actions
 
