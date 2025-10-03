@@ -28,7 +28,7 @@ jobs:
           
       - name: 执行刷步数
         env:
-          ZEPP_ACCOUNT: ${{ secrets.ZEPP_ACCOUNT }}
+          ZEPP_ACCOUNT: ${{ secrets.ZEPP_USER }}
           ZEPP_PASSWORD: ${{ secrets.ZEPP_PASSWORD }}
           AES_KEY: ${{ secrets.AES_KEY }}
           STEP_MIN: ${{ vars.STEP_MIN || '8000' }}
