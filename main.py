@@ -497,4 +497,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        print("\n" + "="*60, flush=True)
+        print("程序异常退出", flush=True)
+        print("="*60, flush=True)
+        traceback.print_exc()
+        sys.exit(1)  # 明确返回错误码
+
