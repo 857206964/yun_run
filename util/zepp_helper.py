@@ -295,21 +295,21 @@ def update_step(app_token, userid, step, ip):
 
     data = f'userid={userid}&last_sync_data_time=1597306380&device_type=0&last_deviceid=DA932FFFFE8816E7&data_json={data_json}'
 
-   try:
+    try:
         print(f"[请求] 更新步数: {step}，IP: {ip}，URL: {url}")  # 添加日志
         response = requests.post(url, data=data, headers=head, timeout=30)  # 使用 Config.REQUEST_TIMEOUT，如果有
         print(f"[响应] 状态码: {response.status_code}")
-
+    
         if response.status_code != 200:
             return False, f"请求修改步数异常：{response.status_code}"
-
+    
         response_json = response.json()
         message = response_json.get("message", "未知错误")
         if message == "success":
             return True, message
         else:
             return False, message
-
+    
     except requests.exceptions.Timeout:
         return False, "请求超时"
     except requests.exceptions.RequestException as e:
