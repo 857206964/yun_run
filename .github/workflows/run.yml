@@ -34,11 +34,11 @@ jobs:
     
     # 下载之前保存的 Token 缓存（如果存在）
     - name: 下载Token缓存
-      continue-on-error: true
       uses: actions/download-artifact@v4
       with:
         name: encrypted-tokens
         path: .
+      continue-on-error: true
         
     - name: 安装依赖
       run: |
@@ -61,7 +61,7 @@ jobs:
         AES_KEY: ${{ secrets.AES_KEY }}              # AES加密密钥（建议设置）
         GITHUB_TOKEN: ${{ secrets.PAT }}             # 如果需要写入仓库，请创建 PAT 并使用
       run: |
-        python main.py
+        python main.py > run.log 2>&1
         
     # 保存Token缓存（用于下次运行）
     - name: 上传Token缓存
@@ -78,9 +78,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: run-logs-${{ github.run_number }}
-        path: |
-          *.log
-          logs/*.log
+        name: run-logs
+        path: run.log
         retention-days: 7
         if-no-files-found: ignore
