@@ -7,7 +7,11 @@ import os
 HM_AES_KEY = b'xeNtBVqzDc6tuNTh'  # 16 bytes
 HM_AES_IV = b'MAAAYAAAAAAAAABg'  # 16 bytes
 
+# 本地存储默认密钥（可自定义）
+DEFAULT_AES_KEY = b'xeNtBVqzDc6tuNTh'  # 16 bytes，请修改为你的密钥
+
 AES_BLOCK_SIZE = AES.block_size  # 16
+
 
 def get_aes_key():
     """获取AES密钥：优先使用环境变量，否则使用默认密钥"""
@@ -18,11 +22,13 @@ def get_aes_key():
 
 
 def _pkcs7_pad(data: bytes) -> bytes:
+    """PKCS7填充"""
     pad_len = AES_BLOCK_SIZE - (len(data) % AES_BLOCK_SIZE)
     return data + bytes([pad_len]) * pad_len
 
 
 def _pkcs7_unpad(data: bytes) -> bytes:
+    """PKCS7去填充"""
     if not data or len(data) % AES_BLOCK_SIZE != 0:
         raise ValueError(f"invalid padded data length {len(data)}")
     pad_len = data[-1]
@@ -34,18 +40,25 @@ def _pkcs7_unpad(data: bytes) -> bytes:
 
 
 def _validate_key(key: bytes):
+    """验证密钥格式"""
     if not isinstance(key, (bytes, bytearray)):
         raise TypeError("key must be bytes")
     if len(key) != 16:
         raise ValueError("key must be 16 bytes for AES-128")
 
+
 def encrypt_data(plain: bytes, key: bytes, iv: bytes | None = None) -> bytes:
     """
-    返回：IV（16B） + ciphertext（bytes） 或者仅ciphertext（当使用固定IV时）
+    AES-CBC加密
+    
     参数：
       - plain: 明文字节
       - key: 16 字节 AES-128 密钥
-      - iv: IV向量，如果为None则生成随机IV
+      - iv: IV向量，如果为None则生成随机IV并附加在密文前
+    
+    返回：
+      - iv为None时: IV（16B） + ciphertext
+      - iv不为None时: ciphertext（使用固定IV）
     """
     _validate_key(key)
     if not isinstance(plain, (bytes, bytearray)):
@@ -57,7 +70,7 @@ def encrypt_data(plain: bytes, key: bytes, iv: bytes | None = None) -> bytes:
         cipher = AES.new(key, AES.MODE_CBC, iv)
         padded = _pkcs7_pad(plain)
         ciphertext = cipher.encrypt(padded)
-        return iv + ciphertext
+        return iv + ciphertext  # IV + 密文
     else:
         # 使用固定IV
         if len(iv) != AES_BLOCK_SIZE:
@@ -65,26 +78,32 @@ def encrypt_data(plain: bytes, key: bytes, iv: bytes | None = None) -> bytes:
         cipher = AES.new(key, AES.MODE_CBC, iv)
         padded = _pkcs7_pad(plain)
         ciphertext = cipher.encrypt(padded)
-        return ciphertext
+        return ciphertext  # 仅密文
 
 
 def decrypt_data(data: bytes, key: bytes, iv: bytes | None = None) -> bytes:
     """
-    输入：IV（16B） + ciphertext 或者仅ciphertext（当使用固定IV时）
-    返回：明文字节（未解码为字符串）
+    AES-CBC解密
+    
+    参数：
+      - data: 加密数据（IV + 密文 或 仅密文）
+      - key: 16 字节 AES-128 密钥
+      - iv: 固定IV，如果为None则从data前16字节提取
+    
+    返回：明文字节
     """
     _validate_key(key)
     if not isinstance(data, (bytes, bytearray)):
         raise TypeError("data must be bytes")
 
     if iv is None:
-        # 从数据中提取IV（假设前16字节是IV）
+        # 从数据中提取IV（前16字节）
         if len(data) < AES_BLOCK_SIZE:
             raise ValueError("data too short")
-
+        
         iv = data[:AES_BLOCK_SIZE]
         ciphertext = data[AES_BLOCK_SIZE:]
-
+        
         if len(ciphertext) == 0 or len(ciphertext) % AES_BLOCK_SIZE != 0:
             raise ValueError("invalid ciphertext length")
     else:
@@ -98,3 +117,14 @@ def decrypt_data(data: bytes, key: bytes, iv: bytes | None = None) -> bytes:
     cipher = AES.new(key, AES.MODE_CBC, iv)
     decrypted_padded = cipher.decrypt(ciphertext)
     return _pkcs7_unpad(decrypted_padded)
+
+
+# 华米API专用加密函数（使用固定密钥和IV）
+def encrypt_huami_data(plain: bytes) -> bytes:
+    """使用华米固定密钥和IV加密数据"""
+    return encrypt_data(plain, HM_AES_KEY, HM_AES_IV)
+
+
+def decrypt_huami_data(data: bytes) -> bytes:
+    """使用华米固定密钥和IV解密数据"""
+    return decrypt_data(data, HM_AES_KEY, HM_AES_IV)
