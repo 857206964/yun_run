@@ -12,8 +12,9 @@ import requests
 from util.aes_help import encrypt_data, HM_AES_KEY, HM_AES_IV
 
 #feat: 通过AES加密保存账号token，避免经常登录导致429. 需要配置secret：AES_KEY
-# 通过账号密码获取access_token和refresh_token 但是refresh_token不知道怎么使用
+#通过账号密码获取access_token和refresh_token 但是refresh_token不知道怎么使用
 def login_access_token(user, password) -> (str | None, str | None):
+    """登录获取access_token(加密方式)"""
     headers = {
         "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
         "user-agent": "MiFit6.14.0 (M2007J1SC; Android 12; Density/2.75)",
@@ -23,6 +24,7 @@ def login_access_token(user, password) -> (str | None, str | None):
         "x-hm-ekv": "1",
         "hm-privacy-ceip": "false"
     }
+    
     login_data = {
         'emailOrPhone': user,
         'password': password,
@@ -32,24 +34,56 @@ def login_access_token(user, password) -> (str | None, str | None):
         'token': 'access',
         'redirect_uri': 'https://s3-us-west-2.amazonaws.com/hm-registration/successsignin.html',
     }
-    # 等同 http_build_query，默认使用 quote_plus 将空格转为 '+'
+    
+    # 添加日志
+    print(f"[加密登录] 账号: {user[:3]}***{user[-3:]}")
+    print(f"[加密登录] 接口: https://api-user.zepp.com/v2/registrations/tokens")
+    
     query = urllib.parse.urlencode(login_data)
     plaintext = query.encode('utf-8')
-    # 执行请求加密
-    cipher_data = encrypt_data(plaintext, HM_AES_KEY, HM_AES_IV)
-
-    url1 = 'https://api-user.zepp.com/v2/registrations/tokens'
-    r1 = requests.post(url1, data=cipher_data, headers=headers, allow_redirects=False, timeout=5)
-    if r1.status_code != 303:
-        return None, "登录异常，status: %d" % r1.status_code
+    
+    # 检查加密参数
+    print(f"[加密] 明文长度: {len(plaintext)} 字节")
+    print(f"[加密] 密钥长度: {len(HM_AES_KEY)} 字节")
+    print(f"[加密] IV长度: {len(HM_AES_IV)} 字节")
+    
     try:
-        location = r1.headers["Location"]
+        cipher_data = encrypt_data(plaintext, HM_AES_KEY, HM_AES_IV)
+        print(f"[加密] 密文长度: {len(cipher_data)} 字节")
+    except Exception as e:
+        error_msg = f"加密失败: {str(e)}"
+        print(f"[错误] {error_msg}")
+        return None, error_msg
+    
+    url1 = 'https://api-user.zepp.com/v2/registrations/tokens'
+    
+    try:
+        r1 = requests.post(url1, data=cipher_data, headers=headers, 
+                          allow_redirects=False, timeout=10)
+        
+        print(f"[响应] 状态码: {r1.status_code}")
+        print(f"[响应] Headers: {dict(r1.headers)}")
+        
+        if r1.status_code != 303:
+            return None, f"登录异常，status: {r1.status_code}"
+            
+        location = r1.headers.get("Location", "")
+        print(f"[重定向] Location: {location[:100]}...")
+        
         code = get_access_token(location)
         if code is None:
-            return None, "获取accessToken失败 %s" % get_error_code(location)
-    except:
-        return None, f"获取accessToken异常:{traceback.format_exc()}"
-    return code, None
+            error_code = get_error_code(location)
+            return None, f"获取accessToken失败: {error_code}"
+            
+        print(f"[成功] access_token长度: {len(code)}")
+        return code, None
+        
+    except Exception as e:
+        error_msg = f"请求异常: {str(e)}"
+        print(f"[异常] {error_msg}")
+        import traceback
+        print(f"[堆栈] {traceback.format_exc()[:300]}")
+        return None, error_msg
 
 
 # 获取登录code
