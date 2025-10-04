@@ -5,7 +5,7 @@ import traceback
 import urllib
 import uuid
 from datetime import datetime
-from constants import DATA_JSON
+from util.constants import DATA_JSON
 import pytz
 import requests
 
