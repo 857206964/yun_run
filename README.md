@@ -1,7 +1,7 @@
  - zepp-step-counter/
  - ├── .github/
  - │   └── workflows/
- - │       └── run.yml           # GitHub Actions 配置
+ - │               └── run.yml           # GitHub Actions 配置
  - ├── util/
  - │   ├── __init__.py          # 空文件
  - │   ├── aes_help.py          # AES加密工具
