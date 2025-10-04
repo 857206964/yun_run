@@ -100,11 +100,11 @@ def fake_ip() -> str:
 def desensitize_user_name(user: str) -> str:
     """账号脱敏显示"""
     if not user:
-        return "***"
-    if len(user) <= 8:
-        ln = max(math.floor(len(user) / 3), 1)
-        return f'{user[:ln]}***{user[-ln:]}'
-    return f'{user[:3]}****{user[-4:]}'
+        return "None"  
+    length = len(user)
+    if length < 4:  
+        return "请配置正确的手机号或者邮箱"
+    return "*" * (length - 4) + user[-4:]
 
 
 def is_manual_trigger() -> bool:
