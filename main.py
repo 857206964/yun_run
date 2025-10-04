@@ -90,10 +90,9 @@ def fake_ip() -> str:
     """
     生成虚拟IP地址（国内IP段）
     IP段：223.64.0.0 - 223.117.255.255 或 39.0.0.0 - 39.255.255.255
-    加入39移动网段
     """
     if random.choice([True, False]):
-        return f"39.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
+        return f"39.149.{random.randint(0, 255)}.{random.randint(0, 255)}"
     else:
         return f"223.{random.randint(64, 117)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
 
