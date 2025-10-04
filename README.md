@@ -38,3 +38,6 @@
 - Python 3.10
 - 库：pytz, requests, pycryptodome (详见 requirements.txt)
 
+## 参考资料
+- https://github.com/TonyJiangWJ/mimotion
+- https://github.com/hanximeng/Zepp_API/blob/main/index.php 
