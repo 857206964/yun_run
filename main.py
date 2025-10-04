@@ -2,7 +2,7 @@
 """
 Zepp自动刷步数主程序
 支持多账号、Token缓存、自动推送、错误重试
-直接读取环境变量，无需CONFIG配置
+直接读取环境变量
 """
 import math
 import traceback
@@ -269,80 +269,109 @@ class ZeppStepRunner:
         self.log_str += f"[虚拟IP] {self.fake_ip_addr}\n"
     
     def login(self) -> Optional[str]:
-        """
-        登录并获取app_token
-        支持三级Token缓存：access_token -> login_token -> app_token
-        :return: app_token 或 None
-        """
-        user_token_info = self.user_tokens.get(self.user)
-        
-        # 尝试使用缓存的Token
-        if user_token_info:
-            access_token = user_token_info.get("access_token")
-            login_token = user_token_info.get("login_token")
-            app_token = user_token_info.get("app_token")
-            self.device_id = user_token_info.get("device_id", self.device_id)
-            self.user_id = user_token_info.get("user_id")
+    """
+    登录并获取app_token
+    支持三级Token缓存：access_token -> login_token -> app_token
+    :return: app_token 或 None
+    """
+    user_token_info = self.user_tokens.get(self.user)
+    
+    # 尝试使用缓存的Token
+    if user_token_info:
+        access_token = user_token_info.get("access_token")
+        login_token = user_token_info.get("login_token")
+        app_token = user_token_info.get("app_token")
+        self.device_id = user_token_info.get("device_id", self.device_id)
+        self.user_id = user_token_info.get("user_id")
             
-            # 检查app_token是否有效
-            try:
-                ok, msg = zeppHelper.check_app_token(app_token)
-                if ok:
-                    self.log_str += "[成功] 使用缓存的app_token\n"
-                    return app_token
-            except Exception as e:
-                self.log_str += f"[警告] app_token验证异常: {str(e)}\n"
-            
-            self.log_str += f"[警告] app_token已失效，尝试刷新...\n"
-            
-            # 尝试用login_token刷新app_token
-            try:
-                app_token, msg = zeppHelper.grant_app_token(login_token)
-                if app_token:
-                    user_token_info["app_token"] = app_token
-                    user_token_info["app_token_time"] = get_timestamp()
-                    self.log_str += "[成功] app_token刷新成功\n"
-                    return app_token
-            except Exception as e:
-                self.log_str += f"[警告] app_token刷新异常: {str(e)}\n"
-            
-            self.log_str += f"[警告] login_token已失效，重新登录...\n"
-        
-        # Token全部失效，重新登录
+        # 检查app_token是否有效
         try:
-            access_token, msg = zeppHelper.login_access_token(self.user, self.password)
-            if not access_token:
-                self.log_str += f"[失败] 获取access_token失败: {msg}\n"
-                return None
-            
-            login_token, app_token, user_id, msg = zeppHelper.grant_login_tokens(
-                access_token, self.device_id, self.is_phone
-            )
-            
-            if not login_token:
-                self.log_str += f"[失败] Token获取失败: {msg}\n"
-                return None
-            
-            # 保存Token
-            current_time = get_timestamp()
-            self.user_tokens[self.user] = {
-                "access_token": access_token,
-                "login_token": login_token,
-                "app_token": app_token,
-                "user_id": user_id,
-                "device_id": self.device_id,
-                "access_token_time": current_time,
-                "login_token_time": current_time,
-                "app_token_time": current_time
-            }
-            
-            self.user_id = user_id
-            self.log_str += "[成功] 登录成功，Token已缓存\n"
-            return app_token
+            ok, msg = zeppHelper.check_app_token(app_token)
+            if ok:
+                self.log_str += "[成功] 使用缓存的app_token\n"
+                return app_token
+            # 添加详细日志
+            self.log_str += f"[详细] app_token验证失败: {msg}\n"
         except Exception as e:
-            self.log_str += f"[异常] 登录过程异常: {str(e)}\n"
-            traceback.print_exc()
+            self.log_str += f"[警告] app_token验证异常: {str(e)}\n"
+        
+        self.log_str += f"[警告] app_token已失效，尝试刷新...\n"
+        
+        # 尝试用login_token刷新app_token
+        try:
+            app_token, msg = zeppHelper.grant_app_token(login_token)
+            if app_token:
+                user_token_info["app_token"] = app_token
+                user_token_info["app_token_time"] = get_timestamp()
+                self.log_str += "[成功] app_token刷新成功\n"
+                return app_token
+            #  添加详细日志
+            self.log_str += f"[详细] app_token刷新失败: {msg}\n"
+        except Exception as e:
+            self.log_str += f"[警告] app_token刷新异常: {str(e)}\n"
+        
+        self.log_str += f"[警告] login_token已失效，重新登录...\n"
+    
+    # Token全部失效，重新登录
+    try:
+        # 添加登录请求日志
+        self.log_str += f"[请求] 正在向认证服务器发送登录请求...\n"
+        self.log_str += f"[详细] 用户: {desensitize_user_name(self.user)}\n"
+        
+        access_token, msg = zeppHelper.login_access_token(self.user, self.password)
+        
+        # 添加响应日志
+        if not access_token:
+            self.log_str += f"[失败] 获取access_token失败\n"
+            self.log_str += f"[详细] 错误信息: {msg}\n"
+            # 检查是否401错误
+            if "401" in str(msg):
+                self.log_str += f"[分析] 401错误通常表示用户名或密码错误\n"
             return None
+        
+        self.log_str += f"[成功] access_token获取成功（长度: {len(access_token)}）\n"
+        
+        # 添加grant token请求日志
+        self.log_str += f"[请求] 正在获取login_token和app_token...\n"
+        
+        login_token, app_token, user_id, msg = zeppHelper.grant_login_tokens(
+            access_token, self.device_id, self.is_phone
+        )
+        
+        if not login_token:
+            self.log_str += f"[失败] Token获取失败\n"
+            self.log_str += f"[详细] 错误信息: {msg}\n"
+            return None
+        
+        #  添加成功日志
+        self.log_str += f"[成功] 所有Token获取成功\n"
+        self.log_str += f"[详细] user_id: {user_id}\n"
+        self.log_str += f"[详细] device_id: {self.device_id[:8]}...\n"
+        
+        # 保存Token
+        current_time = get_timestamp()
+        self.user_tokens[self.user] = {
+            "access_token": access_token,
+            "login_token": login_token,
+            "app_token": app_token,
+            "user_id": user_id,
+            "device_id": self.device_id,
+            "access_token_time": current_time,
+            "login_token_time": current_time,
+            "app_token_time": current_time
+        }
+        
+        self.user_id = user_id
+        self.log_str += "[成功] 登录成功，Token已缓存\n"
+        return app_token
+    except Exception as e:
+        self.log_str += f"[异常] 登录过程异常: {str(e)}\n"
+        # 添加详细异常信息
+        self.log_str += f"[详细] 异常类型: {type(e).__name__}\n"
+        import traceback
+        self.log_str += f"[堆栈] {traceback.format_exc()[:500]}\n"  # 限制长度
+        return None
+
     
     def execute(self, min_step: int, max_step: int) -> Tuple[str, bool]:
         """
