@@ -559,8 +559,8 @@ def main():
     print(f"{'='*60}\n", flush=True)
     
     # 直接读取环境变量
-    users = os.environ.get('USER', '').strip()
-    passwords = os.environ.get('PWD', '').strip()
+    users = os.environ.get('ZEPP_USER', '').strip()
+    passwords = os.environ.get('ZEPP_PWD', '').strip()
     sckey = os.environ.get('SCKEY', '').strip()
     use_concurrent = get_bool_value_default(os.environ.get('USE_CONCURRENT', ''), False)
     sleep_seconds = get_float_value_default(os.environ.get('SLEEP_GAP', ''), Config.DEFAULT_SLEEP_GAP)
