@@ -524,7 +524,7 @@ def push_notification(exec_results: List[Dict], sckey: str = None):
 def main():
     """主函数 - 直接读取环境变量"""
     print(f"\n{'='*60}", flush=True)
-    print(f"Zepp自动刷步数程序 v2.1", flush=True)
+    print(f"Zepp自动刷步数程序", flush=True)
     print(f"执行时间: {format_now()}", flush=True)
     print(f"触发方式: {'手动触发' if is_manual_trigger() else '自动触发'}", flush=True)
     print(f"{'='*60}\n", flush=True)
