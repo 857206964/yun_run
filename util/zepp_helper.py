@@ -274,7 +274,7 @@ def renew_login_token(login_token) -> (str | None, str | None):
     return login_token, None
 
 
-def post_fake_brand_data(step, app_token, userid):
+def update_step(app_token, userid, step, ip):
     t = get_time()
 
     today = time.strftime("%F")
