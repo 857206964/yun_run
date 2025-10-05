@@ -162,7 +162,7 @@ def server_send(msg: str, sckey: str = None):
     server_url = f"https://sctapi.ftqq.com/{sckey}.send"
     
     data = {
-        'title': f'Zepp刷步数通知 - {format_now()}',
+        'text': msg,
         'desp': msg
     }
     
