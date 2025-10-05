@@ -26,8 +26,8 @@ import util.zepp_helper as zeppHelper
 class Config:
     """全局配置类"""
     TOKEN_FILE = "encrypted_tokens.data"
-    DEFAULT_MIN_STEP = 15000
-    DEFAULT_MAX_STEP = 25000
+    DEFAULT_MIN_STEP = 10000
+    DEFAULT_MAX_STEP = 35000
     DEFAULT_SLEEP_GAP = 5.0
     REQUEST_TIMEOUT = 30
     MAX_RETRY = 3
