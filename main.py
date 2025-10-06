@@ -115,39 +115,24 @@ def is_manual_trigger() -> bool:
 def get_min_max_by_time(hour: int = None, minute: int = None) -> Tuple[int, int]:
     """
     根据当前北京时间智能计算步数范围
-    
-    手动触发模式：
-    - 凌晨1-5点  -> 10000-20000步（归到上午）
-    - 上午6-12点 -> 10000-20000步
-    - 下午13-18点-> 21000-30000步
-    - 晚上19-24点-> 31000-35000步
-    
-    自动触发模式：
-    - 根据时间比例线性计算
+    统一使用时间段范围（手动/自动相同），晚上19-24点: 31000-35000
     """
     if hour is None:
         hour = get_beijing_time().hour
     if minute is None:
         minute = get_beijing_time().minute
-    
-    if is_manual_trigger():
-        # 手动触发：根据时间段选择
-        if 1 <= hour <= 5:
-            return Config.MANUAL_STEP_RANGES['night']
-        elif 6 <= hour <= 12:
-            return Config.MANUAL_STEP_RANGES['morning']
-        elif 13 <= hour <= 18:
-            return Config.MANUAL_STEP_RANGES['afternoon']
-        elif 19 <= hour <= 23 or hour == 0:
-            return Config.MANUAL_STEP_RANGES['evening']
-        else:
-            return Config.DEFAULT_MIN_STEP, Config.DEFAULT_MAX_STEP
+
+    # 统一逻辑：根据时间段选择（忽略手动/自动区别）
+    if 1 <= hour <= 5:
+        return Config.MANUAL_STEP_RANGES['night']
+    elif 6 <= hour <= 12:
+        return Config.MANUAL_STEP_RANGES['morning']
+    elif 13 <= hour <= 18:
+        return Config.MANUAL_STEP_RANGES['afternoon']
+    elif 19 <= hour <= 23 or hour == 0:
+        return Config.MANUAL_STEP_RANGES['evening']
     else:
-        # 自动触发：线性计算
-        time_rate = min((hour * 60 + minute) / (22 * 60), 1)
-        min_step = int(time_rate * 18000)
-        max_step = int(time_rate * 30000)
-        return max(min_step, 5000), max(max_step, 10000)
+        return Config.DEFAULT_MIN_STEP, Config.DEFAULT_MAX_STEP
 
 
 def server_send(msg: str, sckey: str = None):
@@ -387,14 +372,14 @@ class ZeppStepRunner:
         step = random.randint(min_step, max_step)
         self.actual_step = step
         
-        self.log_str += f"[随机步数] 范围: {min_step:,}~{max_step:,}，生成步数: {step:,}\n"
+        self.log_str += f"[随机步数] 范围: {min_step}~{max_step}，生成步数: {step}\n"
         
         # 重试机制
         for attempt in range(Config.MAX_RETRY):
             try:
                 ok, msg = zeppHelper.update_step(app_token, self.user_id, step, self.fake_ip_addr)
                 if ok:
-                    return f"[成功] {msg} | 步数: {step:,}", True
+                    return f"[成功] {msg} | 步数: {step}", True
                 self.log_str += f"[失败] 第{attempt+1}次尝试: {msg}\n"
             except Exception as e:
                 self.log_str += f"[异常] 第{attempt+1}次尝试异常: {str(e)}\n"
@@ -468,36 +453,28 @@ def push_notification(exec_results: List[Dict], sckey: str = None):
     if not sckey or sckey.upper() == 'NO':
         print("[信息] 未配置推送或已禁用推送", flush=True)
         return
-    
-    total = len(exec_results)
-    success_count = sum(1 for r in exec_results if r.get('success'))
-    fail_count = total - success_count
-    total_steps = sum(r.get('step', 0) for r in exec_results if r.get('success'))
-    
-    # 构建推送消息
-    msg = f"### [执行摘要]\n\n"
-    msg += f"- **执行时间**: {format_now()}\n"
-    msg += f"- **触发方式**: {'手动触发' if is_manual_trigger() else '自动触发'}\n"
-    msg += f"- **总账号数**: {total}\n"
-    msg += f"- **成功**: {success_count} 个\n"
-    msg += f"- **失败**: {fail_count} 个\n"
-    if success_count > 0:
-        msg += f"- **最终步数**: {total_steps:,} 步\n"
-    msg += f"\n---\n\n"
-    msg += f"### [详细结果]\n\n"
-    
-    for idx, result in enumerate(exec_results, 1):
-        user = result.get('user', '未知')
-        success = result.get('success', False)
-        res_msg = result.get('msg', '无信息')
-        step = result.get('step')
-        
-        status = "[成功]" if success else "[失败]"
-        msg += f"{idx}. {status} **账号**: `{user}`\n"
-        if step:
-            msg += f"   - **步数**: {step:,} 步\n"
-        msg += f"   - **结果**: {res_msg}\n\n"
-    
+
+    if not exec_results:
+        return
+
+    # 假设只有一个结果（您的代码只处理第一个账号）
+    result = exec_results[0]
+    user = result.get('user', '未知')
+    success = result.get('success', False)
+    res_msg = result.get('msg', '无信息')
+    step = result.get('step', 0) if success else None
+
+    status = "成功 success" if success else "失败 failure"
+    current_time = format_now()
+
+    # 构建简化推送消息
+    msg = f"### 刷步通知 - 当前北京时间: {current_time}\n\n"
+    msg += f"账号: {user}\n"
+    if step:
+        msg += f"结果: {status} | 步数: {step}\n"  # 不带逗号
+    else:
+        msg += f"结果: {status} | {res_msg}\n"
+
     print(f"[信息] 正在发送推送通知...", flush=True)
     server_send(msg, sckey)
 
@@ -553,7 +530,7 @@ def main():
     
     # 计算步数范围
     min_step, max_step = get_min_max_by_time()
-    print(f"[信息] 步数范围: {min_step:,} ~ {max_step:,}", flush=True)
+    print(f"[信息] 步数范围: {min_step} ~ {max_step}", flush=True)
     print(f"[信息] 推送通知: {'已启用' if sckey and sckey != 'NO' else '未启用'}\n", flush=True)
     
     # 执行刷步数
