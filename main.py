@@ -468,14 +468,14 @@ def push_notification(exec_results: List[Dict], sckey: str = None):
     current_time = format_now()
 
     # 构建简化推送消息
-    msg = f"### 刷步通知 - 当前北京时间: {current_time}\n\n"
+    msg = f"刷步通知-北京时间: {current_time}\n\n"
     msg += f"账号: {user}\n"
     if step:
-        msg += f"结果: {status} | 步数: {step}\n"  # 不带逗号
+        msg += f"结果: {status} | 步数: {step}\n"  
     else:
         msg += f"结果: {status} | {res_msg}\n"
 
-    print(f"[信息] 正在发送推送通知...", flush=True)
+    print(f"[信息] 正在推送通知...", flush=True)
     server_send(msg, sckey)
 
 
