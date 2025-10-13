@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Zepp自动刷步数主程序
-支持多账号、Token缓存、自动推送、错误重试
+Token缓存、自动推送、错误重试
 直接读取环境变量
 """
 import math
@@ -135,10 +135,11 @@ def get_min_max_by_time(hour: int = None, minute: int = None) -> Tuple[int, int]
         return Config.DEFAULT_MIN_STEP, Config.DEFAULT_MAX_STEP
 
 
-def server_send(msg: str, sckey: str = None):
+def server_send(title: str, body: str, sckey: str = None):
     """
     Server酱推送（支持Server酱Turbo）
-    :param msg: 推送消息
+    :param title: 推送标题
+    :param body: 推送正文
     :param sckey: Server酱密钥
     """
     if not sckey or sckey.upper() == 'NO':
@@ -147,8 +148,8 @@ def server_send(msg: str, sckey: str = None):
     server_url = f"https://sctapi.ftqq.com/{sckey}.send"
     
     data = {
-        'text': msg,
-        'desp': msg
+        'text': title,
+        'desp': body
     }
     
     try:
@@ -467,15 +468,16 @@ def push_notification(exec_results: List[Dict], sckey: str = None):
     status = "成功 success" if success else "失败 failure"
     current_time = format_now()
 
-    # 构建简化推送消息
-    msg = f"刷步通知: {current_time}\n\n"
+    # 构建推送标题和正文
+    title = "刷步通知"
+    body = f"{current_time}\n\n"
     if step:
-        msg += f" {status} | 步数: {step}\n"  
+        body += f"{status} | 步数: {step}\n"
     else:
-        msg += f" {status} | {res_msg}\n"
+        body += f"{status} | {res_msg}\n"
 
     print(f"[信息] 正在推送通知...", flush=True)
-    server_send(msg, sckey)
+    server_send(title, body, sckey)
 
 
 # ==================== 主入口 ====================
@@ -578,4 +580,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
