@@ -102,9 +102,9 @@ def desensitize_user_name(user: str) -> str:
     if not user:
         return "None"  
     length = len(user)
-    if length < 4:  
+    if length < 3:  
         return "请配置正确的手机号或者邮箱"
-    return "*" * (length - 4) + user[-4:]
+    return "*" * (length - 2) + user[-2:]
 
 
 def is_manual_trigger() -> bool:
@@ -558,14 +558,6 @@ def main():
     fail_count = total - success_count
     total_steps = sum(r.get('step', 0) for r in exec_results if r.get('success'))
     
-    print(f"\n{'='*60}", flush=True)
-    print(f"[执行完成]", flush=True)
-    print(f"- 总账号数: {total}", flush=True)
-    print(f"- 成功: {success_count} 个", flush=True)
-    print(f"- 失败: {fail_count} 个", flush=True)
-    if success_count > 0:
-        print(f"- 最终步数: {total_steps:,} 步", flush=True)
-    print(f"{'='*60}\n", flush=True)
     
     # 推送通知：只在自动运行且当前小时为19时推送
     if sckey and sckey.upper() != 'NO' and not is_manual_trigger() and get_beijing_time().hour == 19:
