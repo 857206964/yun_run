@@ -35,9 +35,6 @@ def login_access_token(user, password) -> (str | None, str | None):
         'redirect_uri': 'https://s3-us-west-2.amazonaws.com/hm-registration/successsignin.html',
     }
     
-    # 添加日志
-    print(f"[加密登录] 账号: {user[:3]}***{user[-3:]}")
-    print(f"[加密登录] 接口: https://api-user.zepp.com/v2/registrations/tokens")
     
     query = urllib.parse.urlencode(login_data)
     plaintext = query.encode('utf-8')
@@ -61,14 +58,14 @@ def login_access_token(user, password) -> (str | None, str | None):
         r1 = requests.post(url1, data=cipher_data, headers=headers, 
                           allow_redirects=False, timeout=10)
         
-        print(f"[响应] 状态码: {r1.status_code}")
-        print(f"[响应] Headers: {dict(r1.headers)}")
+        # print(f"[响应] 状态码: {r1.status_code}")
+        # print(f"[响应] Headers: {dict(r1.headers)}")
         
         if r1.status_code != 303:
             return None, f"登录异常，status: {r1.status_code}"
             
         location = r1.headers.get("Location", "")
-        print(f"[重定向] Location: {location[:100]}...")
+        # print(f"[重定向] Location: {location[:100]}...")
         
         code = get_access_token(location)
         if code is None:
@@ -296,9 +293,8 @@ def update_step(app_token, userid, step, ip):
     data = f'userid={userid}&last_sync_data_time=1597306380&device_type=0&last_deviceid=DA932FFFFE8816E7&data_json={data_json}'
 
     try:
-        print(f"[请求] 更新步数: {step}，IP: {ip}，URL: {url}")  # 添加日志
         response = requests.post(url, data=data, headers=head, timeout=30)  # 使用 Config.REQUEST_TIMEOUT，如果有
-        print(f"[响应] 状态码: {response.status_code}")
+        # print(f"[响应] 状态码: {response.status_code}")
     
         if response.status_code != 200:
             return False, f"请求修改步数异常：{response.status_code}"
